@@ -1,5 +1,28 @@
 import { JSDOM } from 'jsdom'
 
+async function crawlPage(currentURL) {
+    // uses fetch to fetch the webpage of the currentURL
+    console.log(`actively crawling: ${currentURL}`)
+
+    try {
+        const response = await fetch(currentURL)
+
+        if (!response.ok) {
+            throw new Error('Response network was not ok ' + response.statusText)
+        }
+        
+        const contentType = response.headers.get('content-type')
+        if (!contentType.includes('text/html')) {
+            console.log(`ignoring non html response: ${contentType} on page: ${currentURL}`)
+            return
+        }
+        console.log(await response.text())
+
+    } catch (err) {
+        console.log(`error: ${err.message} on page: ${currentURL}`)
+    }
+}
+
 function getURLsFromHTML(htmlBody, baseURL) {
     const dom = new JSDOM(htmlBody)
     const links = dom.window.document.querySelectorAll('a')
@@ -16,7 +39,7 @@ function getURLsFromHTML(htmlBody, baseURL) {
                 urls.push(urlObj.href)
             }
         } catch (err) {
-            console.log(`error with relative url: ${err.message}`)
+            console.log(`error with relative/absolute url: ${err.message}`)
         }
     }
     return urls
@@ -33,5 +56,6 @@ function normalizeURL(urlString) {
 
 export {
     normalizeURL,
-    getURLsFromHTML
+    getURLsFromHTML,
+    crawlPage
 };
