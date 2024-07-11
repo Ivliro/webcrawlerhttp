@@ -1,11 +1,59 @@
 import { JSDOM } from 'jsdom'
 
-async function crawlPage(currentURL) {
+async function crawlPage(baseURL, currentURL = baseURL, pages={}) {
     // uses fetch to fetch the webpage of the currentURL
     console.log(`actively crawling: ${currentURL}`)
-
+    
     try {
-        const response = await fetch(currentURL)
+        const parsedURL = new URL(currentURL)
+        const parsedBaseURL = new URL(baseURL)
+
+        if (parsedURL.host !== parsedBaseURL.host) {
+            console.log(`ignoring page: ${currentURL}`)
+            return pages
+        }
+
+    } catch (err) {
+        console.log(`error: ${err.message} on page: ${currentURL}`)
+        return
+    }
+
+    const normalizedURL = normalizeURL(currentURL)
+
+    // if the page has already been crawled, return
+    try {
+        if (pages[normalizedURL]) {
+            console.log(`already crawled: ${currentURL}`)
+            pages[normalizedURL] += 1
+            return pages
+        }
+        else {
+            pages[normalizedURL] = 1
+        }
+
+    } catch (err) {
+        console.log(`error: ${err.message} on page: ${currentURL}`)
+        return
+    }
+
+    let html = await fetchAndParseHTML(currentURL)
+    const urls = getURLsFromHTML(html, baseURL)
+    for (const url of urls) {
+        pages = await crawlPage(baseURL, url, pages)
+    }
+
+    // if the currentURL is the same as the baseURL, we are done
+    // if (currentURL === baseURL) {
+    //     console.log(`crawling complete, found ${Object.keys(pages).length} pages`)
+    //     return pages
+    // }
+    return pages
+}
+
+async function fetchAndParseHTML(currentURL) {
+    let response
+    try {
+        response = await fetch(currentURL)
 
         if (!response.ok) {
             throw new Error('Response network was not ok ' + response.statusText)
@@ -16,11 +64,12 @@ async function crawlPage(currentURL) {
             console.log(`ignoring non html response: ${contentType} on page: ${currentURL}`)
             return
         }
-        console.log(await response.text())
+        // console.log(await response.text())
 
     } catch (err) {
         console.log(`error: ${err.message} on page: ${currentURL}`)
     }
+    return response.text()
 }
 
 function getURLsFromHTML(htmlBody, baseURL) {
